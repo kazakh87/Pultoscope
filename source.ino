@@ -91,7 +91,7 @@ void setup() {
   while (digitalRead(ok) == LOW) {
     checkForShutdown();
 
-/////////////////////////////////////////удержание кнопки отключения 
+    /////////////////////////////////////////удержание кнопки отключения 
     if (true) // if hase change
     {
       display.clearDisplay();
@@ -113,7 +113,7 @@ void setup() {
     }
     if (digitalRead(levo) == HIGH) { delay(300); pultoskop = pultoskop + 1; }
     if (digitalRead(pravo) == HIGH) { delay(300); pultoskop = pultoskop + 1; }
-    if (pultoskop>3) { pultoskop = 0; }
+    if (pultoskop > 3) { pultoskop = 0; }
     delay(50);
     display.display();
   }
@@ -130,17 +130,17 @@ void Zamer() {
   if (razv == 4) { ADCSRA = 0b11100100; }//delitel 16
   if (razv == 3) { ADCSRA = 0b11100101; }//delitel 32
   if (razv == 2) { ADCSRA = 0b11100110; }//delitel 64
-  if (razv<2) { ADCSRA = 0b11100111; }//delitel 128
+  if (razv < 2) { ADCSRA = 0b11100111; }//delitel 128
   if (razv == 0) {
-    for (int i = 0; i<700; i++) {
+    for (int i = 0; i < 700; i++) {
       while ((ADCSRA & 0x10) == 0);
       ADCSRA |= 0x10;
       delayMicroseconds(500);
       mass[i] = ADCH;
     }
   }
-  if (razv>0) {
-    for (int i = 0; i<700; i++) {
+  if (razv > 0) {
+    for (int i = 0; i < 700; i++) {
       while ((ADCSRA & 0x10) == 0);
       ADCSRA |= 0x10;
       mass[i] = ADCH;
@@ -151,7 +151,7 @@ void Zamer() {
 void loop() {
   checkForShutdown();
 
-/////////////////////////////////////////удержание кнопки отключения    
+  /////////////////////////////////////////удержание кнопки отключения    
   if (pultoskop == 0) { Oscilloscope(); }
   if (pultoskop == 1) { Generator(); }
   if (pultoskop == 2) { DDSGenerator(); }
@@ -166,14 +166,14 @@ void Oscilloscope() {
   //#######################################определение точки синхронизации
   bool flagSINHRO = 0;
   bool flagSINHRnull = 0;
-  for (int y = 1; y<255; y++) {
-    if (flagSINHRO == 0) { if (mass[y]<SinU) { flagSINHRnull = 1; } }
-    if (flagSINHRO == 0) { if (flagSINHRnull == 1) { if (mass[y]>SinU) { flagSINHRO = 1; sinhMASS = y; } } }
+  for (int y = 1; y < 255; y++) {
+    if (flagSINHRO == 0) { if (mass[y] < SinU) { flagSINHRnull = 1; } }
+    if (flagSINHRO == 0) { if (flagSINHRnull == 1) { if (mass[y] > SinU) { flagSINHRO = 1; sinhMASS = y; } } }
   }
   //#######################################определение точки синхронизации
   //максимальное значение сигнала##########################
   Vmax = 0;
-  for (int y = 1; y<255; y++) { if (Vmax<mass[y]) { Vmax = mass[y]; } }
+  for (int y = 1; y < 255; y++) { if (Vmax < mass[y]) { Vmax = mass[y]; } }
   //максимальное значение сигнала##########################
   //#######################################определение точки синхронизации
   //#######################################отрисовка графика 
@@ -181,8 +181,8 @@ void Oscilloscope() {
     display.clearDisplay();
     display.fillCircle(80, 47 - SinU / 7, 2, BLACK);//рисуем уровень синхронизации    
     x = 3;
-    for (int y = sinhMASS; y<sinhMASS + 80; y++) {
-      if (razv<7) { x++; }
+    for (int y = sinhMASS; y < sinhMASS + 80; y++) {
+      if (razv < 7) { x++; }
       if (razv == 7) { x = x + 2; }
       if (razv == 8) { x = x + 3; }
       display.drawLine(x, 47 - mass[y] / 7, x + 1, 47 - mass[y + 1] / 7, BLACK);
@@ -195,8 +195,8 @@ void Oscilloscope() {
     display.drawLine(prokr / 8, 8, prokr / 8 + 6, 8, BLACK);//шкала прокрутки
     display.drawLine(prokr / 8, 9, prokr / 8 + 6, 9, BLACK);//шкала прокрутки
     x = 3;
-    for (int y = prokr; y<prokr + 80; y++) {
-      if (razv<7) { x++; }
+    for (int y = prokr; y < prokr + 80; y++) {
+      if (razv < 7) { x++; }
       if (razv == 7) { x = x + 2; }
       if (razv == 8) { x = x + 3; }
       display.drawLine(x, 47 - mass[y] / 7, x + 1, 47 - mass[y + 1] / 7, BLACK);
@@ -204,10 +204,10 @@ void Oscilloscope() {
     }
   }
   //#######################################отрисовка графика
-  for (byte i = 47; i>5; i = i - 7) { display.drawPixel(0, i, BLACK); display.drawPixel(1, i, BLACK); display.drawPixel(2, i, BLACK); }//разметка экрана  вертикальная
+  for (byte i = 47; i > 5; i = i - 7) { display.drawPixel(0, i, BLACK); display.drawPixel(1, i, BLACK); display.drawPixel(2, i, BLACK); }//разметка экрана  вертикальная
                                                                                                                                        //////////////////////////////////////////////////сетка
-  for (byte i = 47; i>5; i = i - 3) { display.drawPixel(21, i, BLACK); display.drawPixel(42, i, BLACK); display.drawPixel(63, i, BLACK); }
-  for (byte i = 3; i<84; i = i + 3) { display.drawPixel(i, 33, BLACK); display.drawPixel(i, 19, BLACK); }
+  for (byte i = 47; i > 5; i = i - 3) { display.drawPixel(21, i, BLACK); display.drawPixel(42, i, BLACK); display.drawPixel(63, i, BLACK); }
+  for (byte i = 3; i < 84; i = i + 3) { display.drawPixel(i, 33, BLACK); display.drawPixel(i, 19, BLACK); }
   //////////////////////////////////////////////////сетка
   //#######################################отрисовка menu
   if (menu == 0) {
@@ -245,8 +245,8 @@ void Oscilloscope() {
     display.setTextColor(WHITE, BLACK); // 'inverted' text 
     display.print(" P");
     paus = 1;
-    if (digitalRead(levo) == HIGH) { prokr = prokr - 10; if (prokr<0) { prokr = 0; } }
-    if (digitalRead(pravo) == HIGH) { prokr = prokr + 10; if (prokr>620) { prokr = 620; } }
+    if (digitalRead(levo) == HIGH) { prokr = prokr - 10; if (prokr < 0) { prokr = 0; } }
+    if (digitalRead(pravo) == HIGH) { prokr = prokr + 10; if (prokr > 620) { prokr = 620; } }
   }
   if (menu == 3) {
     prokr = 0;
@@ -259,8 +259,8 @@ void Oscilloscope() {
     display.print(razv);
     display.setTextColor(BLACK);
     display.print(" P");
-    if (digitalRead(levo) == HIGH) { SinU = SinU - 20; if (SinU<20) { SinU = 20; } }
-    if (digitalRead(pravo) == HIGH) { SinU = SinU + 20; if (SinU>230) { SinU = 230; } }
+    if (digitalRead(levo) == HIGH) { SinU = SinU - 20; if (SinU < 20) { SinU = 20; } }
+    if (digitalRead(pravo) == HIGH) { SinU = SinU + 20; if (SinU > 230) { SinU = 230; } }
     display.fillCircle(80, 47 - SinU / 7, 5, BLACK);
     display.fillCircle(80, 47 - SinU / 7, 2, WHITE);
   }
@@ -272,12 +272,12 @@ void Oscilloscope() {
   bool flagFrec1 = 0;
   bool flagFrec2 = 0;
   bool flagFrec3 = 0;
-  for (int y = 1; y<255; y++) {
-    if (flagFrec1 == 0) { if (mass[y]<SinU) { flagFrec2 = 1; } }
-    if (flagFrec1 == 0) { if (flagFrec2 == 1) { if (mass[y]>SinU) { flagFrec1 = 1; Frec1 = y; } } }
-    if (flagFrec1 == 1) { if (mass[y]<SinU) { flagFrec3 = 1; } }
+  for (int y = 1; y < 255; y++) {
+    if (flagFrec1 == 0) { if (mass[y] < SinU) { flagFrec2 = 1; } }
+    if (flagFrec1 == 0) { if (flagFrec2 == 1) { if (mass[y] > SinU) { flagFrec1 = 1; Frec1 = y; } } }
+    if (flagFrec1 == 1) { if (mass[y] < SinU) { flagFrec3 = 1; } }
     if (flagFrec3 == 1) {
-      if (mass[y]>SinU) {
+      if (mass[y] > SinU) {
         if (razv >= 6) { Frec = 1000000 / ((y - Frec1 - 1)*3.27); }//delitel 4
         if (razv == 5) { Frec = 1000000 / ((y - Frec1)*3.27) / 2; }//delitel 8
         if (razv == 4) { Frec = 1000000 / ((y - Frec1)*3.27) / 4; }//delitel 16
@@ -293,12 +293,12 @@ void Oscilloscope() {
   //#######################################частоты сигнала
   display.setTextColor(BLACK);
   if (opornoe == 1) {
-    if ((Vmax*VCC / 255)>2.5) { countX = count*(overclock / 16.0); }
-    if ((Vmax*VCC / 255)<2.5) { countX = Frec*(overclock / 16.0); }
+    if ((Vmax*VCC / 255) > 2.5) { countX = count*(overclock / 16.0); }
+    if ((Vmax*VCC / 255) < 2.5) { countX = Frec*(overclock / 16.0); }
   }
   if (opornoe == 0) { countX = Frec*(overclock / 16.0); }
-  if (countX<1000) { display.print(" "); display.print(countX); display.print("Hz"); }
-  if (countX>1000) { float countXK = countX / 1000.0; display.print(countXK, 1); display.print("KHz"); }
+  if (countX < 1000) { display.print(" "); display.print(countX); display.print("Hz"); }
+  if (countX > 1000) { float countXK = countX / 1000.0; display.print(countXK, 1); display.print("KHz"); }
   if (opornoe == 1) {
     display.setCursor(0, 40); display.setTextColor(BLACK);
     display.print(Vmax*VCC / 255, 1);
@@ -318,7 +318,7 @@ void Generator() {
   if (flag == 0) {//флаг выборов режима настройки ШИМ или Частоты
     if (digitalRead(levo) == HIGH) {
       frequency = frequency - mnog;
-      if (frequency<0) { frequency = 0; }
+      if (frequency < 0) { frequency = 0; }
       bool success = SetPinFrequencySafe(led, frequency);
       delay(3);//защита от дребезга 
     }
@@ -331,13 +331,13 @@ void Generator() {
   if (flag == 1) {//флаг выборов режима настройки ШИМ или Частоты
     if (digitalRead(levo) == HIGH) {
       PWM = PWM - 1;
-      if (PWM<0) { PWM = 255; }
+      if (PWM < 0) { PWM = 255; }
       delay(3);//защита от дребезга
 
     }
     if (digitalRead(pravo) == HIGH) {
       PWM = PWM + 1;
-      if (PWM>255) { PWM = 0; }
+      if (PWM > 255) { PWM = 0; }
       delay(3);//защита от дребезга 
     }
   }
@@ -362,9 +362,9 @@ void Generator() {
   display.setCursor(5, 20);
   display.setTextSize(2);
   long frequencyX = frequency*(overclock / 16.0);
-  if (frequencyX<1000) { display.print(frequencyX); display.setTextSize(1); display.println("Hz"); }
-  if (frequencyX>1000) { if (frequencyX<10000) { display.print((frequencyX / 1000.0), 2); display.setTextSize(1); display.println("KHz"); } }
-  if (frequencyX >= 10000) { if (frequencyX<100000) { display.print((frequencyX / 1000.0), 1); display.setTextSize(1); display.println("KHz"); } }
+  if (frequencyX < 1000) { display.print(frequencyX); display.setTextSize(1); display.println("Hz"); }
+  if (frequencyX > 1000) { if (frequencyX < 10000) { display.print((frequencyX / 1000.0), 2); display.setTextSize(1); display.println("KHz"); } }
+  if (frequencyX >= 10000) { if (frequencyX < 100000) { display.print((frequencyX / 1000.0), 1); display.setTextSize(1); display.println("KHz"); } }
   if (frequencyX >= 100000) { display.print((frequencyX / 1000.0), 0); display.setTextSize(1); display.println("KHz"); }
   display.setCursor(0, 40);
   display.setTextSize(1);
@@ -463,8 +463,8 @@ void TTL() {
   display.println("Нажми ОК-старт");
   if (digitalRead(pravo) == HIGH) { speedTTL = speedTTL + 100; }
   if (digitalRead(levo) == HIGH) { speedTTL = speedTTL - 100; }
-  if (speedTTL<0) { speedTTL = 250000; }
-  if (speedTTL>250000) { speedTTL = 0; }
+  if (speedTTL < 0) { speedTTL = 250000; }
+  if (speedTTL > 250000) { speedTTL = 0; }
   if (digitalRead(ok) == HIGH) {
     Serial.begin(speedTTL*(16 / overclock));
     display.clearDisplay();

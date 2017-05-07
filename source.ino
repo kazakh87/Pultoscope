@@ -162,19 +162,19 @@ void checkEncoderPosition() {
 
 byte EepromRead(int adress)
 {
-  return 0;// todo need implement
+  return eeprom_read_byte((uint8_t*)adress);
 }
 void EepromRead(int adress, byte data[], bool reverse = false)
 {
   int step = reverse ? -1 : 1;
-  if (reverse) adress += sizeof(data);
-  for (int i = 0; i < sizeof(data) - 1; ++i, adress += step) {
+  if (reverse) adress += sizeof(data)-1;
+  for (int i = 0; i < sizeof(data); ++i, adress += step) {
     data[i] = EepromRead(adress);
   }
 }
 void _EepromWrite(int adress, byte value)
 {
-  // todo need implement
+  eeprom_write_byte((uint8_t*)adress, value);
 }
 void EepromUpdate(int adress, byte value)
 {

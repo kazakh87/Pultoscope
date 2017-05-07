@@ -53,8 +53,104 @@ void printInverted(char* text, bool inverted)
   if (inverted) display.setTextColor(BLACK);
 }
 
+// drehencoder implementieren
+#define encoderClockPin  PIN_02 // interrupt pin = clock pin of encoder
+#define encoderClockInterruptPin  PIN_02_INT0
+#define encoderDataPin  4 // todo find other digital pin = data pin of encoder
+#define encoderSwitchPin  PIN_03 // interrupt pin = switch pin of encoder
+#define encoderSwitchInterruptPin  PIN_03_INT1 // interrupt pin = switch pin of encoder
 
-// todo drehencoder implementieren
+void setupEncoderInterrupt() {
+  pinMode(encoderClockPin, INPUT_PULLUP); // PullUp against floating input and to use interrupt LOW
+  pinMode(encoderDataPin, INPUT_PULLUP); // PullUp against floating input
+  pinMode(encoderSwitchPin, INPUT_PULLUP); // PullUp against floating input
+
+  attachInterrupt(encoderClockInterruptPin, encoderCloskInterrupt, LOW); // low for debouncing (try rising or chnage)
+  attachInterrupt(encoderSwitchInterruptPin, encoderSwitchInterrupt, CHANGE); // need a Harware debounce
+}
+
+byte debouncingTimer = 5 * ClockRate; // debouncing by 5 ms
+
+volatile byte encoderPos = 0;
+byte encoderPosLast = 0;
+unsigned long lastClockInterupt = 0;
+void encoderCloskInterrupt() {
+  unsigned long currentInterupt = millis();
+  if (currentInterupt - lastClockInterupt > debouncingTimer) // debouncing by 5 ms
+  {
+    lastClockInterupt = currentInterupt;
+    if (digitalRead(encoderDataPin))
+      --encoderPos; // left 
+    else 
+      ++encoderPos; // right
+  }
+}
+
+#define longClickTime 1500 // capacetor size relevant/ time for set OK Button is long klicked else its short
+#define ClickState_NONE 0
+#define ClickState_SHORT 1
+#define ClickState_LONG 2
+volatile byte encoderClickState = ClickState_NONE;
+unsigned long lastSwitchInterupt = 0;
+void encoderSwitchInterrupt() {
+  // read click if old state was readed
+  if (encoderClickState == ClickState_NONE)
+  {
+  // todo check the direction
+    if (digitalRead(encoderSwitchPin))
+    { // button released
+      unsigned long currentInterupt = millis();
+      if (currentInterupt - lastSwitchInterupt > debouncingTimer) // debouncing/stabilization time
+      {
+        if (currentInterupt - lastSwitchInterupt > (longClickTime * ClockRate))
+          encoderClickState = ClickState_LONG;
+        else
+        encoderClickState = ClickState_SHORT;
+      }
+      lastSwitchInterupt = 0;
+    }
+    else if (!lastSwitchInterupt)
+    { // button pressed
+      lastSwitchInterupt = millis();
+    }
+  }
+}
+
+void checkEncoderPosition() {
+
+  // check the left right buttons
+  if (encoderPos != encoderPosLast)
+  {
+    byte encoderPosNew = encoderPos; // save volatile value
+    bool directionRight = true;
+    int dif = encoderPosNew - encoderPosLast;
+    if (dif < 0)
+    {
+      dif *= -1;
+      directionRight = false;
+    }
+    // if dif > x is a overflow
+    if (dif > 100) directionRight = !directionRight;
+    encoderPosLast = encoderPosNew;
+    if (directionRight)
+      stepRight();
+    else
+      stepLeft();
+  }
+
+  // todo add harsdare Debounce
+  if (encoderClickState != ClickState_NONE)
+  {
+    if (encoderClickState == ClickState_SHORT) // todo check klick is short
+      shortClick();
+    else
+      longClick();
+    encoderClickState = ClickState_NONE; // reset state to read a new one
+  }
+
+}
+
+
 // EEPROM Size ATmega328=1kb/ATmega168=512b 
 #define UPDATE_EEPROM // Comment in for write to eeprom
 #define eepromVersion 1 // EEPROM Version Protects the eeprom for unneeded write circuets
@@ -93,19 +189,19 @@ void checkForShutdown() {
   if (powerON >= timepowerON) { digitalWrite(OFF, LOW); }///отключаем питание
 }
 
-// todo add Debounce
-volatile bool hasInputChange = false;
 void stepLeft() {
-  hasInputChange = true;
 
 }
 
 void stepRight() {
-  hasInputChange = true;
 
 }
 
-void enterClicked() {
+void shortClick() {
+
+}
+
+void longClick() {
 
 }
 
@@ -216,6 +312,8 @@ void setup() {
       EepromUpdate(adress++, dataSaw[i]);
   }
 #endif // UPDATE_EEPROM
+
+  setupEncoderInterrupt();
 
   pinMode(A4, INPUT);
   digitalWrite(OFF, HIGH);//включем питание 
@@ -431,10 +529,10 @@ void Oscilloscope() {
   //#######################################частоты сигнала
   display.setTextColor(BLACK);
   if (opornoe == 1) {
-    if ((Vmax*VCC / 255) > 2.5) { countX = count*(overclock / 16.0); }
-    if ((Vmax*VCC / 255) < 2.5) { countX = Frec*(overclock / 16.0); }
+    if ((Vmax*VCC / 255) > 2.5) { countX = count*(ClockRate); }
+    if ((Vmax*VCC / 255) < 2.5) { countX = Frec*(ClockRate); }
   }
-  if (opornoe == 0) { countX = Frec*(overclock / 16.0); }
+  if (opornoe == 0) { countX = Frec*(ClockRate); }
 
   if (countX < 1000) { display.print(' '); display.print(countX); display.print(L_PultoscopeMenu_Herz); }
   else if (countX >= 1000) { float countXK = countX / 1000.0; display.print(countXK, 1); display.print(L_PultoscopeMenu_KiloHerz); }
@@ -504,7 +602,7 @@ void Generator() {
   ///////////    
   display.setCursor(5, 20);
   display.setTextSize(2);
-  long frequencyX = frequency*(overclock / 16.0);
+  long frequencyX = frequency*(ClockRate);
   if (frequencyX < 1000)
   {
     display.print(frequencyX);
@@ -549,7 +647,7 @@ void Generator() {
       mnog = 1000;
     }
     display.print(" x");
-    display.print(mnog * (overclock / 16.0), 0);
+    display.print(mnog * (ClockRate), 0);
   }
   display.print("<<");
   pwmWrite(led, PWM);
@@ -627,7 +725,7 @@ void TTL() {
   if (speedTTL < 0) { speedTTL = 250000; }
   if (speedTTL > 250000) { speedTTL = 0; }
   if (digitalRead(ok) == HIGH) {
-    Serial.begin(speedTTL*(16 / overclock));
+    Serial.begin(speedTTL*(ClockRate));
     display.clearDisplay();
     delay(100);
     display.display();

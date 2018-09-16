@@ -19,6 +19,7 @@
 #define LOW 0
 #define CHANGE 0
 #define ADCH 0
+#define ADCL 0
 
 
 #define BLACK 0
@@ -74,14 +75,17 @@ public:
   void Adafruit_PCD8544::display() {};
   void Adafruit_PCD8544::clearDisplay() {};
   void Adafruit_PCD8544::setContrast(int) {};
-  void Adafruit_PCD8544::setTextSize(int) {};
-  void Adafruit_PCD8544::setCursor(int, int) {};
-  void Adafruit_PCD8544::drawPixel(int, int, int) {};
-  void Adafruit_PCD8544::drawLine(int, int, int, int, int) {};
-  void Adafruit_PCD8544::fillCircle(int, int, int, int) {};
+  //Desired text size. 1 is default 6x8, 2 is 12x16, 3 is 18x24, etc
+  void Adafruit_PCD8544::setTextSize(int s) {};
+  void Adafruit_PCD8544::setCursor(int x0, int y0) {};
+  void Adafruit_PCD8544::drawPixel(int x0, int y0, int color) {};
+  void Adafruit_PCD8544::drawLine(int x0, int y0, int x1, int y1, int color) {};
+  void Adafruit_PCD8544::fillCircle(int x0, int y0, int r, int color) {};
+  void Adafruit_PCD8544::drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int color) {};
+  
   void Adafruit_PCD8544::println(char[]) {};
   void Adafruit_PCD8544::println(char) {};
-  void Adafruit_PCD8544::setTextColor(int, int = 0) {};
+  void Adafruit_PCD8544::setTextColor(int color, int backgroudcolor = 0) {};
   void Adafruit_PCD8544::print(void*) {};
   void Adafruit_PCD8544::print(double, int = 0) {};
 };
@@ -161,12 +165,12 @@ float ClockRate = overClockRate / 16.0;
 #define led  9   //пин для генератора сигналов (не менять)
 #define dds  10   //пин для генератора dds (не менять)
 //###########################пользовательские настройки
-#define power 8 //пин который опрашивает кнопку включения
-#define OFF 14//пин который управляет ключем питания
-#define  timepowerON 50 //время удержания кнопки выключения
-#define levo 13  //кнопка ЛЕВО(можно любой пин)
-#define ok 12    //кнопка ОК(можно любой пин)
-#define pravo 11 //кнопка ПРАВО(можно любой пин)
+//#define power 8 //пин который опрашивает кнопку включения
+#define PowerOFF_Pin 14 //Pin to Power off
+#define TimerPowerOFF 50 // x read cicles off pressed ok button to power off
+#define InputStepLeft 13  //кнопка ЛЕВО(можно любой пин)
+#define InputButtonOK 12    //кнопка ОК(можно любой пин)
+#define InputStepRight 11 //кнопка ПРАВО(можно любой пин)
 #define Battery_Volt_Pin A5 //любой своюодный аналоговый пин для измерения напряжения АКБ 
 
 /// dreh encoder
@@ -176,34 +180,78 @@ float ClockRate = overClockRate / 16.0;
 
 Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 4, 3, 2);//пины к которым у вас подключен дисплей         
 
-byte cont = 52;//контрастность дисплея
-byte SinU = 30;   //уровень синхронизации 0 до 255 
-int PWM = 128;//стартовое значение ШИМ от 0 до 255        
-long frequency = 500; //стартовое значение частоты в Гц
+// todo per einstellung ermöglichen zu ändern kann im eeprom gespeichert werden? sollte es, fals zu gering eingestellt wird es schwer?
+byte displayContrast = 52;//контрастность дисплея
+
+// speedTTL
+#define DefaulSpeedTTL 9600
+#define DefaultPWNGeneratorFrequency 500
+
+#define MinPWM 0
+#define MaxPWM 255
+
+#define MinMultiplikator 0
+#define MaxMultiplikator 4
+
+#define MinTrigger 20 // breite monitor
+#define MaxTrigger 230 // breite monitor
+#define StepTrigger 20 // breite monitor
+byte Trigger = MinTrigger;   //уровень синхронизации 0 до 255 
+
+
+// todo ist es wirlich 5,0
 float VCC = 5.0;  //напряжение питания, меряем мультиметром
 
-                  //###########################################################
+//###########################################################
 
-int d = 0;
-byte menuDDS = 0;
 
-int powerON = 0;//состояние кнопки питания
-byte hag = 0;
-int mnog = 0;
-byte mass[701];
-byte x = 0;
-byte menu = 0;//переменная выбора меню 
-bool opornoe = 1; //флаг опорного напряжения
-byte pultoskop = 0; //флаг выбора генератора или осциллографа
-byte razv = 6;
-unsigned long count = 0;
-byte sinX = 30;
-byte meaX = 83;
-int Vmax = 0;// максимальное напряжение 
-byte sinhMASS = 0;
-long countX = 0;
-long speedTTL = 9600; //скорость терминала 
-int prokr = 0;
+// nokia 5110 > 84x48
+// OLED Display >  128×64
+#define monitorWidth 84 // breite monitor
+#define monitorHight 48 // höhe monitor
+//Desired text size. 1 is default 6x8, 2 is 12x16, 3 is 18x24, etc
+
+// see for sizes in Adafruit lib
+#define printCharSize1Width 6 
+#define printCharSize1Hight 8
+#define printCharSize2Width (printCharSize1Width * 2) 
+#define printCharSize2Hight (printCharSize1Hight * 2)
+#define printCharSize3Width (printCharSize1Width * 3) 
+#define printCharSize3Hight (printCharSize1Hight * 3)
+// etc
+
+#define displayBorderLeft 2 // ?
+#define displayBorderRight displayBorderLeft // ?
+#define displayBorderTop  0 // ?
+#define displayBorderBottom  1 // ?
+#define displayWidth (monitorWidth - (displayBorderLeft + displayBorderRight)) // breite viewport 
+#define displayHight (monitorHight - (displayBorderTop + displayBorderBottom)) // höhe viewport
+#define memorySize 700 // size of memory
+
+#define MinMemoryPosition 0
+#define MaxMemoryPosition (memorySize - displayWidth)
+#define StepMemoryPosition 10
+
+#define MinReadInterval 1
+#define MaxReadInterval 9
+#define DefaultReadInterval 7
+
+#define MinFrequency 0
+#define MaxFrequency 27000
+
+#define MinTTLFrequency 0
+#define MaxTTLFrequency 250000
+
+byte Memory[memorySize];
+int Memory_Position = 0; // Position der memoryanzeige
+
+// multi usable variable
+long gLongVariable; // in Pultoscope and PWMGenerator as Frequency, in TTL as TTLSpeed
+int gIntVariable; // in Pultoscope as VMax, in PWMGenerator as PWM
+byte gByteVariable; // in Pultoscope as ReadInterval, in PWMGenerator as Multiplikator
+
+#define ADMUX_ExternRefVoltage 0b01100011
+#define ADMUX_InternRefVoltage 0b11100011 // is 1.1V on (ATmega168/328) or 2.56V on (ATmega8)
 
 void printInverted(char* text, bool inverted)
 {
@@ -240,7 +288,7 @@ void encoderCloskInterrupt() {
     lastClockInterupt = currentInterupt;
     if (digitalRead(encoderDataPin))
       --encoderPos; // left 
-    else 
+    else
       ++encoderPos; // right
   }
 }
@@ -255,7 +303,7 @@ void encoderSwitchInterrupt() {
   // read click if old state was readed
   if (encoderClickState == ClickState_NONE)
   {
-  // todo check the direction
+    // todo check the direction
     if (digitalRead(encoderSwitchPin))
     { // button released
       unsigned long currentInterupt = millis();
@@ -264,7 +312,7 @@ void encoderSwitchInterrupt() {
         if (currentInterupt - lastSwitchInterupt > (longClickTime * ClockRate))
           encoderClickState = ClickState_LONG;
         else
-        encoderClickState = ClickState_SHORT;
+          encoderClickState = ClickState_SHORT;
       }
       lastSwitchInterupt = 0;
     }
@@ -325,9 +373,13 @@ byte EepromRead(int adress)
 }
 void EepromRead(int adress, byte data[], bool reverse = false)
 {
+  EepromReadFixLength(adress, data, sizeof(data), reverse);
+}
+void EepromReadFixLength(int adress, byte data[], int length, bool reverse = false)
+{
   int step = reverse ? -1 : 1;
-  if (reverse) adress += sizeof(data) - 1;
-  for (int i = 0; i < sizeof(data); ++i, adress += step) {
+  if (reverse) adress += length - 1;
+  for (int i = 0; i < length; ++i, adress += step) {
     data[i] = EepromRead(adress);
   }
 }
@@ -337,11 +389,19 @@ void EepromWrite(int adress, byte value)
     eeprom_write_byte((uint8_t*)adress, value);
 }
 
-
+int PowerOFF = 0;//состояние кнопки питания
 void checkForShutdown() {
-  /////////////////////////////////////////удержание кнопки отключения
-  if (digitalRead(power) == HIGH) { powerON++; delay(10); }
-  if (powerON >= timepowerON) { digitalWrite(OFF, LOW); }///отключаем питание
+  /////////////////////////////////////////Hold ok button to power off
+  if (digitalRead(InputButtonOK) == HIGH) 
+  { ++PowerOFF; delay(10);
+  // hold time is enoth to power of
+  if (PowerOFF >= TimerPowerOFF)
+  { digitalWrite(PowerOFF_Pin, LOW); }
+  }
+  else
+  {
+    PowerOFF = 0;
+  }
 }
 
 void stepLeft() {
@@ -360,11 +420,33 @@ void longClick() {
 
 }
 
-#define MainMenu_Pultoscope 1
-#define MainMenu_PWNGenerator 1
-#define MainMenu_DDSGenerator 1
-#define MainMenu_SerialTerminal 1
-byte MainMenuPos = 0;
+#define MainMenu_Osziloscope 1
+#define MainMenu_PWNGenerator 2
+#define MainMenu_DDSGenerator 3
+#define MainMenu_SerialTerminal 4
+#define MainMenu_First MainMenu_Osziloscope
+#define MainMenu_Last MainMenu_SerialTerminal
+byte MainMenuPos = MainMenu_First;
+
+#define OsziloscopeMenu_SettingVoltRef 1
+#define OsziloscopeMenu_Setting_ReadInterval 2
+#define OsziloscopeMenu_SettingScrollMemory 3
+#define OsziloscopeMenu_SettingTrigger 4
+#define OsziloscopeMenu_First OsziloscopeMenu_SettingVoltRef
+#define OsziloscopeMenu_Last OsziloscopeMenu_SettingTrigger
+
+#define PWMGeneratorMenu_PWM 1
+#define PWMGeneratorMenu_Freq 2
+#define PWMGeneratorMenu_First PWMGeneratorMenu_PWM
+#define PWMGeneratorMenu_Last PWMGeneratorMenu_Freq
+
+#define DDSGeneratorMenu_Sinus 1
+#define DDSGeneratorMenu_Triangle 2
+#define DDSGeneratorMenu_Saw 3
+#define DDSGeneratorMenu_SawReverse 4
+#define DDSGeneratorMenu_First DDSGeneratorMenu_Sinus
+#define DDSGeneratorMenu_Last DDSGeneratorMenu_SawReverse
+byte ManuPosition = 0; // selected Menu option
 
 // todo buchstaben in zeile ermitteln 84px
 #define DisplayTextStartPos 10 // starts with display of text
@@ -441,6 +523,7 @@ byte MainMenuPos = 0;
 #define L_SerialTerminalMenu_Start "With ОК start"
 #endif
 
+#define GeneratorSignalIntervall 32
 
 // setup
 // todo setup darf keine schleife enthalten
@@ -452,18 +535,18 @@ void setup() {
     EepromUpdate(adress, eepromVersion);
 
     adress = eepromAdress_Sinus;
-    byte dataSinus[32] = { 1,6,15,29,48,69,92,117,143,168,191,212,229,243,251,255,254,248,237,222,203,181,156,131,106,81,59,39,22,10,3,1 };
-    for (int i = 0; i < 32; ++i)
+    byte dataSinus[GeneratorSignalIntervall] = { 1,6,15,29,48,69,92,117,143,168,191,212,229,243,251,255,254,248,237,222,203,181,156,131,106,81,59,39,22,10,3,1 };
+    for (int i = 0; i < GeneratorSignalIntervall; ++i)
       EepromUpdate(adress++, dataSinus[i]);
 
     adress = eepromAdress_Triangle;
-    byte dataTriangle[32] = { 1,18,35,52,69,86,103,120,137,154,171,188,205,222,239,255,239,223,207,191,175,159,143,127,111,95,79,63,47,31,15,1 };
-    for (int i = 0; i < 32; ++i)
+    byte dataTriangle[GeneratorSignalIntervall] = { 1,18,35,52,69,86,103,120,137,154,171,188,205,222,239,255,239,223,207,191,175,159,143,127,111,95,79,63,47,31,15,1 };
+    for (int i = 0; i < GeneratorSignalIntervall; ++i)
       EepromUpdate(adress++, dataTriangle[i]);
 
     adress = eepromAdress_Saw;
-    byte dataSaw[32] = { 1,9,17,25,33,41,49,57,65,73,81,89,97,105,113,121,129,137,145,153,161,169,177,185,193,201,209,217,225,235,245,255 };
-    for (int i = 0; i < 32; ++i)
+    byte dataSaw[GeneratorSignalIntervall] = { 1,9,17,25,33,41,49,57,65,73,81,89,97,105,113,121,129,137,145,153,161,169,177,185,193,201,209,217,225,235,245,255 };
+    for (int i = 0; i < GeneratorSignalIntervall; ++i)
       EepromUpdate(adress++, dataSaw[i]);
   }
 #endif // UPDATE_EEPROM
@@ -471,25 +554,28 @@ void setup() {
   setupEncoderInterrupt();
 
   pinMode(A4, INPUT);
-  digitalWrite(OFF, HIGH);//включем питание 
-                          //Serial.begin(9600);
+  digitalWrite(OFF, HIGH);
+
   display.begin();
-  display.setContrast(cont);
-  while (digitalRead(ok) == LOW) {
+  display.setContrast(displayContrast);
+  while (!InputButton(InputButtonOK)) {
     checkForShutdown();
+
+    if (InputStep(InputStepLeft)) { delay(300); if (--MainMenuPos < MainMenu_First) { MainMenuPos = MainMenu_Last; } }
+    else if (InputStep(InputStepRight)) { delay(300); if (++MainMenuPos > MainMenu_Last) { MainMenuPos = MainMenu_First; } }
 
     /////////////////////////////////////////удержание кнопки отключения 
     if (true) // if hase change
     {
       display.clearDisplay();
       display.setCursor(DisplayTextStartPos, 0);
-      printInverted(L_MainMenu_Pultoscope, pultoskop == 0);
+      printInverted(L_MainMenu_Pultoscope, MainMenuPos == MainMenu_Osziloscope);
       display.setCursor(DisplayTextStartPos, 10);
-      printInverted(L_MainMenu_PWNGenerator, pultoskop == 1);
+      printInverted(L_MainMenu_PWNGenerator, MainMenuPos == MainMenu_PWNGenerator);
       display.setCursor(DisplayTextStartPos, 20);
-      printInverted(L_MainMenu_DDSGenerator, pultoskop == 2);
+      printInverted(L_MainMenu_DDSGenerator, MainMenuPos == MainMenu_DDSGenerator);
       display.setCursor(DisplayTextStartPos, 30);
-      printInverted(L_MainMenu_SerialTerminal, pultoskop == 3);
+      printInverted(L_MainMenu_SerialTerminal, MainMenuPos == MainMenu_SerialTerminal);
     }
     if (true) // volt chaged todo 5.0 sind ausgang für 5 volt was nicht immer stimmt
     {
@@ -499,256 +585,417 @@ void setup() {
       display.print(analogRead(Battery_Volt_Pin)*5.0 / 1024); // readVoltage
       display.print(L_MainMenu_ShortVoltage);
     }
-    if (digitalRead(levo) == HIGH) { delay(300); pultoskop = pultoskop + 1; }
-    if (digitalRead(pravo) == HIGH) { delay(300); pultoskop = pultoskop + 1; }
-    if (pultoskop > 3) { pultoskop = 0; }
-    delay(50);
     display.display();
   }
-  if (pultoskop == 2) { InitTimersSafe(); bool success = SetPinFrequencySafe(led, 200000); }
-  if (pultoskop == 0) { FreqCount.begin(1000); }
-  if (pultoskop == 1) { InitTimersSafe(); bool success = SetPinFrequencySafe(led, frequency); }
+
+  if (MainMenuPos == MainMenu_Osziloscope) {
+    // gLongVariable als Frequency
+    gLongVariable = MinFrequency;
+    // gLongVariable als VMax
+    gIntVariable = 0;
+    // gByteVariable als ReadInterval
+    gByteVariable = DefaultReadInterval;
+    ManuPosition = OsziloscopeMenu_First;
+    FreqCount.begin(1000);
+    ADMUX = ADMUX_ExternRefVoltage; // extern voltage referenc
+  }
+  else if (MainMenuPos == MainMenu_PWNGenerator) {
+    // gLongVariable als Frequency
+    gLongVariable = DefaultPWNGeneratorFrequency;
+    // gIntVariable als PWM
+    gIntVariable = MaxPWM / 2;
+    // gByteVariable als Multiplikator
+    gByteVariable = MinMultiplikator;
+    ManuPosition = PWMGeneratorMenu_First;
+    InitTimersSafe();
+    bool success = SetPinFrequencySafe(led, gLongVariable);
+  }
+  else if (MainMenuPos == MainMenu_DDSGenerator) {
+    ManuPosition = DDSGeneratorMenu_First;
+    InitTimersSafe();
+    bool success = SetPinFrequencySafe(led, 200000);
+  }
+  else if (MainMenuPos == MainMenu_SerialTerminal)
+  {
+    // gLongVariable als TTLSignal
+    gLongVariable = DefaulSpeedTTL; //скорость терминала 
+  }
   display.setTextColor(BLACK);
   delay(500);
 }
 
-void Zamer() {
-  if (razv >= 6) { ADCSRA = 0b11100010; }//delitel 4
-  else if (razv == 5) { ADCSRA = 0b11100011; }//delitel 8
-  else if (razv == 4) { ADCSRA = 0b11100100; }//delitel 16
-  else if (razv == 3) { ADCSRA = 0b11100101; }//delitel 32
-  else if (razv == 2) { ADCSRA = 0b11100110; }//delitel 64
-  else if (razv <= 1) { ADCSRA = 0b11100111; }//delitel 128
-  //  todo komment
-  if (razv == 0) {
-    for (int i = 0; i < 700; i++) {
-      while ((ADCSRA & 0x10) == 0);
-      ADCSRA |= 0x10;
-      delayMicroseconds(500);
-      mass[i] = ADCH;
-    }
-  }
-  else {
-    for (int i = 0; i < 700; i++) {
-      while ((ADCSRA & 0x10) == 0);
-      ADCSRA |= 0x10;
-      mass[i] = ADCH;
-    }
-  }
-
+bool InputStep(int direction)
+{
+  // todo hier kann es an den controler angepasst werden z.B. encoder
+  return (digitalRead(direction) == HIGH);
 }
+
+bool InputButton(int button)
+{
+  // todo hier kann es an den controler angepasst werden z.B. encoder
+  return (digitalRead(button) == HIGH);
+}
+
 void loop() {
-  checkForShutdown();
+  if (MainMenuPos == MainMenu_Osziloscope) { Oscilloscope(); }
+  else if (MainMenuPos == MainMenu_PWNGenerator) { PWMGenerator(); }
+  else if (MainMenuPos == MainMenu_DDSGenerator) { DDSGenerator(); }
+  else if (MainMenuPos == MainMenu_SerialTerminal) { TTL(); }
 
-  /////////////////////////////////////////удержание кнопки отключения    
-  if (pultoskop == 0) { Oscilloscope(); }
-  if (pultoskop == 1) { Generator(); }
-  if (pultoskop == 2) { DDSGenerator(); }
-  if (pultoskop == 3) { TTL(); }
+  ///////////////////////////////////////// long press for reboot (todo if menu not in setup, then can be realocate )
+  checkForShutdown();
 }
-//#######################################режим Осциллографа
-bool pause = false; //флаг режима паузы
+
+//####################################### Oscilloscope
+bool Pause_Mode = false; // Pause Flag
+
 void Oscilloscope() {
-  if (opornoe == 0) { ADMUX = 0b11100011; }//выбор внутреннего опорного 1,1В
-  if (opornoe == 1) { ADMUX = 0b01100011; }//Выбор внешнего опорного
+  long Frequency = gLongVariable;
+  int VMax = gIntVariable;
+  byte ReadInterval = gByteVariable;
+  // read input
+  if (InputButton(InputButtonOK)) { if (++ManuPosition > OsziloscopeMenu_Last) { ManuPosition = OsziloscopeMenu_First; Pause_Mode = false; } } // next menu step, reset menu et end
+  if (ManuPosition == OsziloscopeMenu_SettingVoltRef) {
+    if (InputStep(InputStepLeft) || InputStep(InputStepRight)) {
+      // toggle intern/extern
+      if (ADMUX == ADMUX_InternRefVoltage)
+        ADMUX = ADMUX_ExternRefVoltage; // extern voltage referenc
+      else
+        ADMUX = ADMUX_InternRefVoltage; // intern voltage referenc of 1.1V
+    }
+  }
+  else if (ManuPosition == OsziloscopeMenu_Setting_ReadInterval) {
+    if (InputStep(InputStepLeft)) { if (--ReadInterval < MinReadInterval) { ReadInterval = MinReadInterval; } }
+    else if (InputStep(InputStepRight)) { if (++ReadInterval > MaxReadInterval) { ReadInterval = MaxReadInterval; } }
+    gByteVariable = ReadInterval;
+  }
+  else if (ManuPosition == OsziloscopeMenu_SettingScrollMemory) {
+    Pause_Mode = true; // auto Pause
+    if (InputStep(InputStepLeft)) { if ((Memory_Position -= StepMemoryPosition) < MinMemoryPosition) { Memory_Position = MinMemoryPosition; } }
+    else if (InputStep(InputStepRight)) { if ((Memory_Position += StepMemoryPosition) > MaxMemoryPosition) { Memory_Position = MaxMemoryPosition; } }
+  }
+  else if (ManuPosition == OsziloscopeMenu_SettingTrigger) {
+    Memory_Position = 0; // scroll to start
+    Pause_Mode = false; // release pause
+    if (InputStep(InputStepLeft)) { if ((Trigger -= StepTrigger) < MinTrigger) { Trigger = MinTrigger; } }
+    else if (InputStep(InputStepRight)) { if ((Trigger += StepTrigger) > MaxTrigger) { Trigger = MaxTrigger; } }
+  }
+
+  byte startPoint = Memory_Position;
   delay(5);
-  if (!pause) { Zamer(); }
-  //#######################################определение точки синхронизации
-  bool flagSINHRO = 0;
-  bool flagSINHRnull = 0;
-  for (int y = 1; y < 255; y++) {
-    if (flagSINHRO == 0) { if (mass[y] < SinU) { flagSINHRnull = 1; } }
-    if (flagSINHRO == 0) { if (flagSINHRnull == 1) { if (mass[y] > SinU) { flagSINHRO = 1; sinhMASS = y; } } }
-  }
-  //#######################################определение точки синхронизации
-  //максимальное значение сигнала##########################
-  Vmax = 0;
-  for (int y = 1; y < 255; y++) { if (Vmax < mass[y]) { Vmax = mass[y]; } }
-  //максимальное значение сигнала##########################
-  //#######################################определение точки синхронизации
-  //#######################################отрисовка графика 
-  if (!pause) {
-    display.clearDisplay();
-    display.fillCircle(80, 47 - SinU / 7, 2, BLACK);//рисуем уровень синхронизации    
-    x = 3;
-    for (int y = sinhMASS; y < sinhMASS + 80; y++) {
-      if (razv < 7) { x++; }
-      if (razv == 7) { x = x + 2; }
-      if (razv == 8) { x = x + 3; }
-      display.drawLine(x, 47 - mass[y] / 7, x + 1, 47 - mass[y + 1] / 7, BLACK);
-      display.drawLine(x + 1, 47 - mass[y] / 7 + 1, x + 2, 47 - mass[y + 1] / 7 + 1, BLACK);
-    }
-    sinhMASS = 0;
-  }
-  if (pause) {
-    display.clearDisplay();
-    display.drawLine(prokr / 8, 8, prokr / 8 + 6, 8, BLACK);//шкала прокрутки
-    display.drawLine(prokr / 8, 9, prokr / 8 + 6, 9, BLACK);//шкала прокрутки
-    x = 3;
-    for (int y = prokr; y < prokr + 80; y++) {
-      if (razv < 7) { x++; }
-      if (razv == 7) { x = x + 2; }
-      if (razv == 8) { x = x + 3; }
-      display.drawLine(x, 47 - mass[y] / 7, x + 1, 47 - mass[y + 1] / 7, BLACK);
-      display.drawLine(x + 1, 47 - mass[y] / 7 + 1, x + 2, 47 - mass[y + 1] / 7 + 1, BLACK);
-    }
-  }
-  //#######################################отрисовка графика
-  for (byte i = 47; i > 5; i = i - 7) { display.drawPixel(0, i, BLACK); display.drawPixel(1, i, BLACK); display.drawPixel(2, i, BLACK); }//разметка экрана  вертикальная
- //////////////////////////////////////////////////сетка
-  for (byte i = 47; i > 5; i = i - 3) { display.drawPixel(21, i, BLACK); display.drawPixel(42, i, BLACK); display.drawPixel(63, i, BLACK); }
-  for (byte i = 3; i < 84; i = i + 3) { display.drawPixel(i, 33, BLACK); display.drawPixel(i, 19, BLACK); }
-  //////////////////////////////////////////////////сетка
-  //#######################################отрисовка menu
-  if (menu == 0) {
-    display.setCursor(0, 0);
-    display.setTextColor(WHITE, BLACK);
-    if (opornoe == 0) { display.print("1.1"); }
-    if (opornoe == 1) { display.print(VCC, 1); }
-    display.setTextColor(BLACK);
-    display.print(' ');
-    display.print(razv);
-    display.print(' ');
-    display.print(L_PultoscopeMenu_ShortPause);
-    if (digitalRead(levo) == HIGH) { opornoe = !opornoe; }
-    if (digitalRead(pravo) == HIGH) { opornoe = !opornoe; }
-  }
-  if (menu == 1) {
-    display.setCursor(0, 0);
-    if (opornoe == 0) { display.print("1.1"); }
-    if (opornoe == 1) { display.print(VCC, 1); }
-    display.print(' ');
-    display.setTextColor(WHITE, BLACK); // 'inverted' text 
-    display.print(razv);
-    display.setTextColor(BLACK); // 'inverted' text
-    display.print(' ');
-    display.print(L_PultoscopeMenu_ShortPause);
-    if (digitalRead(levo) == HIGH) { razv = razv - 1; if (razv == 255) { razv = 0; } }
-    if (digitalRead(pravo) == HIGH) { razv = razv + 1; if (razv == 9) { razv = 8; } }
-  }
-  if (menu == 2) {
-    display.setCursor(0, 0);
-    if (opornoe == 0) { display.print("1.1"); }
-    if (opornoe == 1) { display.print(VCC, 1); }
-    display.print(' ');
-    display.print(razv);
-    display.print(' ');
-    display.setTextColor(WHITE, BLACK); // 'inverted' text 
-    display.print(L_PultoscopeMenu_ShortPause);
-    display.setTextColor(BLACK);
-    pause = true;
-    if (digitalRead(levo) == HIGH) { prokr = prokr - 10; if (prokr < 0) { prokr = 0; } }
-    if (digitalRead(pravo) == HIGH) { prokr = prokr + 10; if (prokr > 620) { prokr = 620; } }
-  }
-  if (menu == 3) {
-    prokr = 0;
-    pause = false;
-    display.setCursor(0, 0);
-    if (opornoe == 0) { display.print("1.1"); }
-    if (opornoe == 1) { display.print(VCC, 1); }
-    display.print(' ');
-    display.print(razv);
-    display.print(' ');
-    display.print(L_PultoscopeMenu_ShortPause);
-    if (digitalRead(levo) == HIGH) { SinU = SinU - 20; if (SinU < 20) { SinU = 20; } }
-    if (digitalRead(pravo) == HIGH) { SinU = SinU + 20; if (SinU > 230) { SinU = 230; } }
-    // todo change to triangle
-    display.fillCircle(80, 47 - SinU / 7, 5, BLACK);
-    display.fillCircle(80, 47 - SinU / 7, 2, WHITE);
-  }
-  if (digitalRead(ok) == HIGH) { menu++; if (menu == 4) { menu = 0; pause = false; } }//перебор меню
-  if (FreqCount.available()) { count = FreqCount.read(); }//вывод частоты по готовности счетчика
-                                                          //#######################################частоты сигнала
-  byte Frec1 = 0;
-  long Frec = 0;
-  bool flagFrec1 = 0;
-  bool flagFrec2 = 0;
-  bool flagFrec3 = 0;
-  for (int y = 1; y < 255; y++) {
-    if (flagFrec1 == 0) { if (mass[y] < SinU) { flagFrec2 = 1; } }
-    if (flagFrec1 == 0) { if (flagFrec2 == 1) { if (mass[y] > SinU) { flagFrec1 = 1; Frec1 = y; } } }
-    if (flagFrec1 == 1) { if (mass[y] < SinU) { flagFrec3 = 1; } }
-    if (flagFrec3 == 1) {
-      if (mass[y] > SinU) {
-        if (razv >= 6) { Frec = 1000000 / ((y - Frec1 - 1)*3.27); }//delitel 4
-        if (razv == 5) { Frec = 1000000 / ((y - Frec1)*3.27) / 2; }//delitel 8
-        if (razv == 4) { Frec = 1000000 / ((y - Frec1)*3.27) / 4; }//delitel 16
-        if (razv == 3) { Frec = 1000000 / ((y - Frec1)*3.27) / 8; }//delitel 32
-        if (razv == 2) { Frec = 1000000 / ((y - Frec1)*3.27) / 16; }//delitel 64
-        if (razv == 2) { Frec = 1000000 / ((y - Frec1)*3.27) / 32; }//delitel 128
-        if (razv == 1) { Frec = 1000000 / ((y - Frec1)*3.27) / 32; }//delitel 128
-        if (razv == 0) { Frec = 1000000 / ((y - Frec1) * 500); }//delitel 128
-        flagFrec1 = 0; flagFrec3 = 0;
+  if (!Pause_Mode)
+  {
+    //read data to memory
+    ReadInputToMemory(ReadInterval);
+
+    //####################################### find trigger start
+    for (int i = 0; i < memorySize - displayWidth; ++i) {
+      if (Memory[i] < Trigger && Memory[i] > Trigger)
+      {
+        startPoint = i;
+        break;
       }
     }
+    
+    // found max voltage level
+    for (int i = 0; i < memorySize; ++i)
+    {
+      if (VMax < Memory[i]) { VMax = Memory[i]; }
+    }
+    gIntVariable = VMax;
+
+    // found frequency
+    if (ADMUX == ADMUX_ExternRefVoltage) {
+      if (((VMax*VCC) / 255) > 2.5) {
+        Frequency = ReadFrequency() * ClockRate;
+      }
+      else {
+        Frequency = CalcFrequency(ReadInterval) *ClockRate;
+      }
+    }
+    else {
+      Frequency = CalcFrequency(ReadInterval) * ClockRate;
+    }
+    gLongVariable = Frequency;
   }
-  //#######################################частоты сигнала
+
+  //####################################### printing
+  display.clearDisplay();
+  if (Pause_Mode) {
+    // print memory position
+    int Relation = memorySize / displayWidth;
+    int Selector_Length = displayWidth / Relation;
+    display.drawLine(Memory_Position / Relation, 8, Memory_Position / Relation + Selector_Length, 8, BLACK);
+    // todo old display.drawLine(Memory_Position / Relation8, 9, Memory_Position / Relation + Selector_Length, 9, BLACK);
+    // new is a full line
+    display.drawLine(0, 9, monitorWidth, 9, BLACK);
+  }
+  else
+  {
+    //print synchronisation level indikator 
+    // todo make treangle
+    int circle_radius = 2;
+    int circle_radius_border = 2;
+    if (ManuPosition == OsziloscopeMenu_SettingTrigger) {
+      //display.drawTriangle();
+      display.fillCircle(monitorWidth - (2 * circle_radius), displayHight - Trigger / 7, circle_radius + circle_radius_border, BLACK);
+      display.fillCircle(monitorWidth - (2 * circle_radius), displayHight - Trigger / 7, circle_radius, WHITE);
+    }
+    else {
+      display.fillCircle(monitorWidth - (2 * circle_radius), displayHight - Trigger / 7, circle_radius, BLACK);
+    }
+  }
+
+  //####### print graph from memory
+  int xPos = 3;
+  for (int i = startPoint; i < startPoint + displayWidth; ++i) {
+    if (ReadInterval < 8)
+      ++xPos;
+    else if (ReadInterval == 8)
+      xPos += 2;
+    else if (ReadInterval == 9)
+      xPos += 3;
+    display.drawLine(xPos, displayHight - (Memory[i] / 7), xPos + 1, displayHight - (Memory[i + 1]) / 7, BLACK);
+    display.drawLine(xPos + 1, (displayHight - (Memory[i] / 7)) + 1, xPos + 2, ((displayHight - Memory[i + 1]) / 7) + 1, BLACK);
+  }
+
+  // todo use size given by monitor
+  //#######################################отрисовка графика
+  for (byte i = displayHight; i > 5; i -= 7) {
+    display.drawPixel(0, i, BLACK); 
+    display.drawPixel(1, i, BLACK); 
+    display.drawPixel(2, i, BLACK); }//разметка экрана  вертикальная
+  //////////////////////////////////////////////////сетка
+  byte widthPart1of4 = monitorWidth * (1 / 4);
+  byte widthPart2of4 = monitorWidth * (2 / 4);
+  byte widthPart3of4 = monitorWidth * (3 / 4);
+  for (byte i = displayHight; i > 5; i -= 3) { 
+    display.drawPixel(widthPart1of4, i, BLACK); 
+    display.drawPixel(widthPart2of4, i, BLACK); 
+    display.drawPixel(widthPart3of4, i, BLACK); }
+  for (byte i = 3; i < monitorWidth; i += 3) { 
+    display.drawPixel(i, 33, BLACK);  // todo why 19 and 33
+    display.drawPixel(i, 19, BLACK); }
+  //////////////////////////////////////////////////сетка
+
+  //####################################### Print menu
+  // print head line
+  display.setCursor(0, 0);
   display.setTextColor(BLACK);
-  if (opornoe == 1) {
-    if ((Vmax*VCC / 255) > 2.5) { countX = count*(ClockRate); }
-    if ((Vmax*VCC / 255) < 2.5) { countX = Frec*(ClockRate); }
-  }
-  if (opornoe == 0) { countX = Frec*(ClockRate); }
+  if (ManuPosition == OsziloscopeMenu_SettingVoltRef)  display.setTextColor(WHITE, BLACK);
+  if (ADMUX == ADMUX_ExternRefVoltage)  {
+    display.print(VCC, 1);  }
+  else  {
+    display.print("1.1");  }
+  display.setTextColor(BLACK);
+  display.print(' ');
+  if (ManuPosition == OsziloscopeMenu_Setting_ReadInterval)  display.setTextColor(WHITE, BLACK);
+  display.print(ReadInterval);
+  display.setTextColor(BLACK);
+  display.print(' ');
+  if (ManuPosition == OsziloscopeMenu_SettingScrollMemory) display.setTextColor(WHITE, BLACK);
+  display.print(L_PultoscopeMenu_ShortPause);
+  display.setTextColor(BLACK);
 
-  if (countX < 1000) { display.print(' '); display.print(countX); display.print(L_PultoscopeMenu_Herz); }
-  else if (countX >= 1000) { float countXK = countX / 1000.0; display.print(countXK, 1); display.print(L_PultoscopeMenu_KiloHerz); }
-
-  if (opornoe == 1) {
-    display.setCursor(0, 40); display.setTextColor(BLACK);
-    display.print(Vmax*VCC / 255, 1);
+  if (Frequency < 1000L) {
+    display.print(' ');  // todo format output
+    display.print(Frequency);
+    display.print(L_PultoscopeMenu_Herz);
   }
-  if (opornoe == 0) {
-    display.setCursor(0, 40); display.setTextColor(BLACK);
-    display.print(Vmax*1.1 / 255, 1);
+  else {
+    if (Frequency < 10000)
+      display.print((Frequency / 1000.0), 2);
+    else if (Frequency < 100000)
+      display.print((Frequency / 1000.0), 1);
+    else
+      display.print((Frequency / 1000.0), 0);
+    display.print(L_PultoscopeMenu_KiloHerz);
+  }
+
+  // print bottom line
+  // todo format festlegen
+  display.setCursor(0, monitorHight - printCharSize1Hight);
+  if (ADMUX == ADMUX_ExternRefVoltage) {
+    display.print((VMax*VCC) / 255, 1);
+  }
+  else {
+    display.print((VMax*1.1) / 255, 1);
   }
   display.print(L_MainMenu_ShortVoltage);
-  //#######################################отрисовка menu
+  //#######################################draw ing
   delay(200);
   display.display();
 }
 
-//#######################################режим ренератора
-bool flag = false;
-void Generator() {
-  display.clearDisplay();
-  if (flag) {//флаг выборов режима настройки ШИМ или Частоты
-    if (digitalRead(levo) == HIGH) {
-      if (--PWM < 0) PWM = 255;
-      delay(3);//защита от дребезга
+long CalcFrequency(byte ReadInterval)
+{
+  // Ermitlung der Frequenz zwischen 2 triggern
+  bool searchRising = false;
+  int Trigger_Size = -1;
+  for (int i = 0; i < memorySize; ++i) {
+    // serach low pegel to start rising
+    if (Trigger_Size < 0) {
+      if (!searchRising && Memory[i] < Trigger) { searchRising = true; }
+      else if (searchRising && Memory[i] > Trigger) { Trigger_Size = i; searchRising = false; }
+    }
+    else {
+      if (!searchRising && Memory[i] < Trigger) { searchRising = true; }
+      else if (searchRising && Memory[i] > Trigger) {
+        Trigger_Size = i - Trigger_Size;
+        if (Trigger_Size > 1) break; // stop searching (by 1 search next, because is dangerous)
+      }
+    }
+  }
 
-    }
-    else if (digitalRead(pravo) == HIGH) {
-      if (++PWM > 255) PWM = 0;
-      delay(3);//защита от дребезга 
+  long Frec = 0;
+  if (Trigger_Size > 1) // >1 da es sonst eine division durch null entstehen kann
+  {
+    if (ReadInterval == 1) { Frec = 1000000 / (Trigger_Size * 500); }//delitel 128
+    else if (ReadInterval == 2) { Frec = 1000000 / (Trigger_Size * 3.27) / 32; }//delitel 128 ?
+    else if (ReadInterval == 3) { Frec = 1000000 / (Trigger_Size * 3.27) / 32; }//delitel 128
+    else if (ReadInterval == 4) { Frec = 1000000 / (Trigger_Size * 3.27) / 16; }//delitel 64
+    else if (ReadInterval == 5) { Frec = 1000000 / (Trigger_Size * 3.27) / 4; }//delitel 16
+    else if (ReadInterval == 6) { Frec = 1000000 / (Trigger_Size * 3.27) / 8; }//delitel 32
+    else if (ReadInterval == 7) { Frec = 1000000 / (Trigger_Size * 3.27) / 2; }//delitel 8
+    else /* if (ReadInterval >= 8) */ { Frec = 1000000 / ((Trigger_Size - 1) * 3.27); }//delitel 4
+  }
+  return Frec;
+}
+
+long ReadFrequency()
+{
+  if (FreqCount.available())
+    return FreqCount.read();
+  else
+    return 0;
+}
+
+void ReadInputToMemory(byte ReadInterval) {
+  //ADCSRA - ADC Control and Status Register A
+  // [0-7] Bit position and description
+  // [0-2] ADPS[2:0] : ADC Prescaler Select Bits
+  // These bits determine the division factor between the system clock frequency and the input clock to the ADC.
+  // [3] - ADIE: ADC Interrupt Enable
+  // When this bit is written to one and the I - bit in SREG is set, the ADC Conversion Complete Interrupt is activated.
+  // [4] - ADIF : ADC Interrupt Flag
+  // This bit is set when an ADC conversion completes and the Data Registers are updated.The ADC Conversion
+  // Complete Interrupt is executed if the ADIE bit and the I - bit in SREG are set.ADIF is cleared by hardware when
+  // executing the corresponding interrupt handling vector.Alternatively, ADIF is cleared by writing a logical one to
+  // the flag.Beware that if doing a Read - Modify - Write on ADCSRA, a pending interrupt can be disabled.This also
+  // applies if the SBI and CBI instructions are used.
+  // [5] - ADATE: ADC Auto Trigger Enable
+  // When this bit is written to one, Auto Triggering of the ADC is enabled.The ADC will start a conversion on a
+  // positive edge of the selected trigger signal.The trigger source is selected by setting the ADC Trigger Select bits,
+  // ADTS in ADCSRB.
+  // [6] - ADSC : ADC Start Conversion
+  // In Single Conversion mode, write this bit to one to start each conversion.
+  // In Free Running mode, write this bit to one to start the first conversion.
+  // The first conversion after ADSC has been written after the ADC has been enabled, or if ADSC is written at the
+  // same time as the ADC is enabled, will take 25 ADC clock cycles instead of
+  // the normal 13. This first conversion performs initialization of the ADC.
+  // ADSC will read as one as long as a conversion is in progress.When the conversion is complete, it returns to
+  // zero.Writing zero to this bit has no effect.
+  // [7] - ADEN: ADC Enable
+  // Writing this bit to one enables the ADC.By writing it to zero, the ADC is turned off.Turning the ADC off while a
+  // conversion is in progress, will terminate this conversion.
+
+  // change Prescalar
+  if (ReadInterval >= 7)
+    ADCSRA = 0b11100010; //delitel 4
+  else if (ReadInterval == 6)
+    ADCSRA = 0b11100011; //delitel 8
+  else if (ReadInterval == 5)
+    ADCSRA = 0b11100100; //delitel 16
+  else if (ReadInterval == 4)
+    ADCSRA = 0b11100101; //delitel 32
+  else if (ReadInterval == 3)
+    ADCSRA = 0b11100110; //delitel 64
+  else //if (ReadInterval <= 2) 
+    ADCSRA = 0b11100111; //delitel 128
+
+                         
+  noInterrupts();
+  //  todo komment was genau passiert
+  if (ReadInterval == 1) {
+    for (int i = 0; i < memorySize; ++i) {
+      while (!(ADCSRA & 0x10)); // wait for adc to be ready
+      ADCSRA |= 0x10; // start ADC measurements // im forum gab es auch diese schreibweiseADCSRA |=(1<<ADSC); 
+      delayMicroseconds(500); // todo why a delay?
+      Memory[i] = ADCH;
+      // fetch adc data from forum
+      //byte lowData = ADCL; 
+      //int Data = (ADCH << 8) | ADCL;
+      //Data -= 0x200; // into a signed int
+      //Data <<= 6; // form into a 16b signed int
     }
   }
-  else {//флаг выборов режима настройки ШИМ или Частоты
-    if (digitalRead(levo) == HIGH) {
-      frequency -= mnog;
-      if (frequency < 0) frequency = 0;
-      SetPinFrequencySafe(led, frequency);
-      delay(3);//защита от дребезга 
+  else {
+    for (int i = 0; i < memorySize; ++i) {
+      while (!(ADCSRA & 0x10)); // wait for adc to be ready
+      ADCSRA |= 0x10;
+      Memory[i] = ADCH;
     }
-    else if (digitalRead(pravo) == HIGH) {
-      frequency += mnog;
+  }
+  interrupts();
+}
+
+
+//#######################################generator
+#define PWMGeneratorMenu_PWM 1
+#define PWMGeneratorMenu_Freq 2
+
+void PWMGenerator() {
+  long Frequency = gLongVariable;
+  int PWM = gIntVariable;
+  byte Multiplikator = gByteVariable;
+  
+  if (InputButton(InputButtonOK)) {//переключение разряда выбора частоты 
+    if (++Multiplikator > MaxMultiplikator)
+    {
+      Multiplikator = MinMultiplikator;
+      if (++ManuPosition > PWMGeneratorMenu_Last) ManuPosition = PWMGeneratorMenu_First;
+    }
+    delay(debouncingTimer);
+  }
+
+  if (ManuPosition == PWMGeneratorMenu_PWM) {
+    if (InputStep(InputStepLeft)) {
+      if (--PWM < MinPWM) PWM = MinPWM;
+      delay(debouncingTimer);
+    }
+    else if (InputStep(InputStepRight)) {
+      if (++PWM > MaxPWM) PWM = MaxPWM;
+      delay(debouncingTimer); 
+    }
+    gIntVariable = PWM;
+  }
+  else// if (ManuPosition == PWMGeneratorMenu_Freq) 
+  {
+    if (InputStep(InputStepLeft)) {
+      Frequency -= (1 * (10 ^ Multiplikator));
+      if (Frequency < MinFrequency) Frequency = MinFrequency;
+      gLongVariable = Frequency;
+      SetPinFrequencySafe(led, Frequency);
+      delay(debouncingTimer); 
+    }
+    else if (InputStep(InputStepRight)) {
+      Frequency += (1 * (10 ^ Multiplikator));
       // todo max frquency
-      if (frequency > 27000) frequency = 27000;
-      SetPinFrequencySafe(led, frequency);
-      delay(3);//защита от дребезга 
+      if (Frequency > MaxFrequency) Frequency = MaxFrequency;
+      gLongVariable = Frequency;
+      SetPinFrequencySafe(led, Frequency);
+      delay(debouncingTimer);
     }
   }
-  if (digitalRead(ok) == HIGH) {//переключение разряда выбора частоты 
-    if (++hag >= 5) { hag = 0;    flag = false;    }
-    delay(3);//защита от дребезга
-  }
-  ////////////
+  //////////// printing
+  display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 5);
   display.print(L_PWNGeneratorMenu_ShortPWM);
   display.print('=');
   display.print(PWM * 100.0 / 255);
   display.print(" %");
-  double pwmPercent = 83 * PWM / 255.0;
+  int pwmPercent = displayWidth * (PWM / 255.0);
   display.drawLine(0, 0, pwmPercent, 0, BLACK);
   display.drawLine(0, 1, pwmPercent, 1, BLACK);
   display.drawLine(0, 2, pwmPercent, 2, BLACK);
@@ -758,21 +1005,22 @@ void Generator() {
   ///////////    
   display.setCursor(5, 20);
   display.setTextSize(2);
-  long frequencyX = frequency*(ClockRate);
-  if (frequencyX < 1000)
+  long RealFrequency = Frequency*ClockRate;
+  if (RealFrequency < 1000)
   {
-    display.print(frequencyX);
+    display.print(RealFrequency);
+
     display.setTextSize(1);
     display.println(L_PultoscopeMenu_Herz);
   }
   else
   {
-    if (frequencyX < 10000)
-      display.print((frequencyX / 1000.0), 2);
-    else if (frequencyX < 100000)
-      display.print((frequencyX / 1000.0), 1);
+    if (RealFrequency < 10000)
+      display.print((RealFrequency / 1000.0), 2);
+    else if (RealFrequency < 100000)
+      display.print((RealFrequency / 1000.0), 1);
     else
-      display.print((frequencyX / 1000.0), 0);
+      display.print((RealFrequency / 1000.0), 0);
 
     display.setTextSize(1);
     display.println(L_PultoscopeMenu_KiloHerz);
@@ -781,72 +1029,40 @@ void Generator() {
   display.setTextSize(1);
   display.print(">>");
 
-  if (hag == 4) {//выбор  PWM
+  if (ManuPosition == PWMGeneratorMenu_PWM) {
     display.print(L_PWNGeneratorMenu_ShortPWM);
     display.print(' ');
     display.print(PWM*100.0 / 255);
     display.print('%');
-    flag = true;
   }
-  else
+  else //if(ManuPosition == PWMGeneratorMenu_Freq)
   {
-    if (hag == 0) {//выбор множителя частоты
-      mnog = 1;
-    }
-    else if (hag == 1) {//выбор множителя частоты
-      mnog = 10;
-    }
-    else if (hag == 2) {//выбор множителя частоты
-      mnog = 100;
-    }
-    else if (hag == 3) {//выбор множителя частоты
-      mnog = 1000;
-    }
     display.print(" x");
-    display.print(mnog * (ClockRate), 0);
+    display.print((1 * (10 ^ Multiplikator)) * ClockRate, 0);
   }
   display.print("<<");
   pwmWrite(led, PWM);
   delay(300);
   display.display();
 }
+
 /////////////////////DDS
-
-// todo auslagerung in den eeprom und lesen bei bedarf
-byte* dots = nullptr;
-// todo einmalig laden und im speicher ablegen, bzw aussicher
-//byte dotsSpeicher[32] = {};
-//byte sinM[32] = { 1,6,15,29,48,69,92,117,143,168,191,212,229,243,251,255,254,248,237,222,203,181,156,131,106,81,59,39,22,10,3,1 };
-//byte trianglM[32] = { 1,18,35,52,69,86,103,120,137,154,171,188,205,222,239,255,239,223,207,191,175,159,143,127,111,95,79,63,47,31,15,1 };
-// todo kann man es auch umgehert lesen?
-//byte pilaM[32] = { 1,9,17,25,33,41,49,57,65,73,81,89,97,105,113,121,129,137,145,153,161,169,177,185,193,201,209,217,225,235,245,255 };
-//byte RpilaM[32] = { 250,246,238,230,222,214,206,198,190,182,174,166,158,150,142,134,126,118,110,102,94,86,78,70,62,54,41,33,25,17,9,1 };
-
-void GenerateSignal() {
-  while (digitalRead(pravo) == LOW) {
-    pwmWrite(dds, dots[d++]);
-    if (d == 32) d = 0;
-  }
-}
-
 void DDSGenerator() {
-  if (menuDDS == 0) menuDDS == 1;
 
-  if (dots == nullptr) dots = new byte[32];
-
-  if (menuDDS == 1) EepromRead(eepromAdress_Sinus, dots);
-  else if (menuDDS == 2)  EepromRead(eepromAdress_Triangle, dots);
-  else if (menuDDS == 3) EepromRead(eepromAdress_Saw, dots);
-  else if (menuDDS == 4) EepromRead(eepromAdress_Saw, dots, true);
+  if (ManuPosition == DDSGeneratorMenu_Sinus) EepromReadFixLength(eepromAdress_Sinus, Memory, GeneratorSignalIntervall);
+  else if (ManuPosition == DDSGeneratorMenu_Triangle)  EepromReadFixLength(eepromAdress_Triangle, Memory, GeneratorSignalIntervall);
+  else if (ManuPosition == DDSGeneratorMenu_Saw) EepromReadFixLength(eepromAdress_Saw, Memory, GeneratorSignalIntervall);
+  else if (ManuPosition == DDSGeneratorMenu_SawReverse) EepromReadFixLength(eepromAdress_Saw, Memory, GeneratorSignalIntervall, true);
 
   display.setCursor(DisplayTextStartPos, 0);
-  printInverted(L_DDSGeneratorMenu_Sinus, menuDDS == 1);
+  printInverted(L_DDSGeneratorMenu_Sinus, ManuPosition == DDSGeneratorMenu_Sinus);
   display.setCursor(DisplayTextStartPos, 10);
-  printInverted(L_DDSGeneratorMenu_Triangle, menuDDS == 2);
+  printInverted(L_DDSGeneratorMenu_Triangle, ManuPosition == DDSGeneratorMenu_Triangle);
   display.setCursor(DisplayTextStartPos, 20);
-  printInverted(L_DDSGeneratorMenu_Saw, menuDDS == 3);
+  printInverted(L_DDSGeneratorMenu_Saw, ManuPosition == DDSGeneratorMenu_Saw);
   display.setCursor(DisplayTextStartPos, 30);
-  printInverted(L_DDSGeneratorMenu_SawReverse, menuDDS == 4);
+  printInverted(L_DDSGeneratorMenu_SawReverse, ManuPosition == DDSGeneratorMenu_SawReverse);
+  // todo weitere frequencys
   //display.setCursor(0,40);
     //display.print(L_DDSGeneratorMenu_Frequence);
   //display.print('=');
@@ -855,15 +1071,30 @@ void DDSGenerator() {
 
   delay(100);
   display.display();
+
   GenerateSignal();
-  menuDDS++;
-  if (menuDDS >= 5)  menuDDS = 1;
+  if (++ManuPosition > DDSGeneratorMenu_Last)  ManuPosition = DDSGeneratorMenu_First;
   delay(200);
+}
+
+void GenerateSignal() {
+  Memory_Position = GeneratorSignalIntervall; // ans ende setzen, damit gleich mit null begonnen wird
+  while (!InputStep(InputStepRight)) {
+    if (++Memory_Position == GeneratorSignalIntervall)
+      Memory_Position = 0;
+    pwmWrite(dds, Memory[Memory_Position]);
+  }
 }
 /////////////////////end DDS
 
 /////////////////////TTL
 void TTL() {
+  long speedTTL = gLongVariable;
+
+  if (InputStep(InputStepRight)) { if ((speedTTL += 100) > MaxTTLFrequency) { speedTTL = MinTTLFrequency; } }
+  else if (InputStep(InputStepLeft)) { if ((speedTTL -= 100) < MinTTLFrequency) { speedTTL = MaxTTLFrequency; } }
+  gLongVariable = speedTTL;
+
   display.clearDisplay();
   display.setTextColor(BLACK);
   display.setCursor(DisplayTextStartPos, 0);
@@ -876,35 +1107,45 @@ void TTL() {
   display.println('+');
   display.setCursor(0, 30);
   display.println(L_SerialTerminalMenu_Start);
-  if (digitalRead(pravo) == HIGH) { speedTTL = speedTTL + 100; }
-  if (digitalRead(levo) == HIGH) { speedTTL = speedTTL - 100; }
-  if (speedTTL < 0) { speedTTL = 250000; }
-  if (speedTTL > 250000) { speedTTL = 0; }
-  if (digitalRead(ok) == HIGH) {
-    Serial.begin(speedTTL*(ClockRate));
+
+  if (InputButton(InputButtonOK)) {
+    Serial.begin(speedTTL*ClockRate);
     display.clearDisplay();
     delay(100);
-    display.display();
-    int x = 0;
-    int y = 0;
-    while (1) {
-      char incomingBytes;
-      if (Serial.available() > 0) { // Если в буфере есть данные
+    char incomingBytes;
+    int width = 0;
+    int height = 0;
+    display.setCursor(width, height);
+    while (true) {
+      // todo can use memory for history to scroll up and down
+      // todo ohne history kann man auch setTextWrap(true) nutzen, spart man sich die zählung
+      if (Serial.available() > 0) { // wait for data
         incomingBytes = Serial.read(); // Считывание байта в переменную incomeByte
-        display.setCursor(x, y);
+        display.setCursor(width, height);
         display.print(incomingBytes); // Печать строки в буффер дисплея
-        display.display(); x = x + 6;
-        if (x == 84) { x = 0; y = y + 8; }
-        if (y == 48) {
-          x = 0; y = 0;
+        display.display();
+        width += printCharSize1Width;
+        // if end row go to next
+        if (width == monitorWidth) { 
+          width = 0; height += printCharSize1Hight;
+          display.setCursor(width, height);
+        }
+        // if last row clean up and back to beginn
+        if (height == monitorHight) {
+          width = 0; height = 0;
           display.clearDisplay();
           delay(100);
-          display.display();
+          display.setCursor(width, height);
         }
+      }
+      ///////////////////////////////////////// long press for reboot (todo if menu not in setup, then can be realocate )
+      //checkForShutdown(); // todo or to brack
+      if (InputButton(InputButtonOK))
+      {
+        delay(100);
+        break;
       }
     }
   }
-  delay(100);
-  display.display();
 }
 /////////////////////end TTL
